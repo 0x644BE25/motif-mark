@@ -14,7 +14,6 @@
 
 import cairo
 import re
-#import io
 import argparse
 
 #---------------- GLOBAL VARS ----------#
@@ -23,10 +22,6 @@ global ntDict, colors
 ntDict = {'T':'[tT]','A':'[aA]','C':'[cC]','U':'[tT]','G':'[gG]','Y':'[ctCT]', 
           'R':'[agAG]','W':'[atAT]','S':'[gcGC]','K':'[tgTG]','M':'[caCA]','N':'[acugACUG]'}
 
-colors = [(0.933, 0.376, 0.333), (0.376, 0.827, 0.580), 
-          (1.0, 0.851, 0.490), (1.0, 0.608, 0.522), (0.659, 0.855, 0.863), 
-          (0.271, 0.482, 0.596), (0.114, 0.208, 0.341), (0.667, 0.965, 0.514), (1.0, 0.624, 0.110)]
-
 #--------------- METHODS ---------------#
 
 def getArgs():
@@ -34,7 +29,8 @@ def getArgs():
     parser=argparse.ArgumentParser(description="Visualize motifs in FASTA sequences")
     parser.add_argument("-f", "--fasta", help="path to FASTA file", required=True, type=str)
     parser.add_argument("-m", "--motif", help="path to motif text file", required=True, type=str)
-    parser.add_argument("-o", "--output", help="output file, default is motifs.svg", default='motifs.svg', type=str)
+    parser.add_argument("-o", "--output", help="(optional) output file, default is motifs.svg", default='motifs.svg', type=str)
+    parser.add_argument("-c", "--colors", help="(optional) text file of colors in (r,g,b) format, 1 per line", type=str)
     parser.add_argument("-a", "--allowOverlaps", help="allow overlaps, defaults to True", default=True, type=bool)
     
     return(parser.parse_args())
@@ -49,7 +45,7 @@ def makePattern(motif,allowOverlaps):
     regex = regex+')'
     return(regex)
 
-def getMotifs(filename,colors,allowOverlaps=True):
+def getMotifs(filename,colors,allowOverlaps):
     """ Parse file of motifs, return list of tuples of (motif, regex, color)."""
     file = open(filename, 'r')
     motifs = []
@@ -92,34 +88,61 @@ def drawTranscript(context,seq,i):
     """ Draw exon and flanking intronson existing SVG. """
     name, bases = seq[0],seq[1]
     
-    # get segment lengths
-    utr5,exon = 0,0
-    for char in bases:
-        if char.islower():
-            utr5 += 1
-        else:
-            break
-    for char in bases[utr5:]:
-        if char.isupper():
-            exon +=1
-    #print("utr5: %d exon: %d\n" % (utr5,exon))
-    
     context.set_source_rgb(.5,.5,.5)
-    context.set_line_width(10)
     x,y = 50, i*150
     context.move_to(x,y)
     context.show_text(name)
     y += 50
     context.move_to(x,y)
-    context.line_to(x+len(bases),y)
-    context.stroke()
-    context.set_line_width(30)
-    context.move_to(x+utr5,y)
-    context.line_to(x+utr5+exon,y)
-    context.stroke()
-    context.move_to(x,y)
+    
+    for char in bases:
+        x += 1
+        if char.islower():
+            context.set_line_width(10)
+        else:
+            context.set_line_width(30)
+        context.line_to(x,y)
+        context.stroke()
+        context.move_to(x,y)
     
     return(True)
+
+def hexToColor(hex):
+    """ Convert hexadecimal color codes to PyCairo's rgb format. """
+    hex = hex.strip("#")
+    r = int(hex[0:2], 16)/255
+    g = int(hex[2:4], 16)/255
+    b = int(hex[4:6], 16)/255
+
+    return(r,g,b)
+
+    
+def rgbToColor(rgb):
+    """ Convert standard RGB to PyCairo's format. """
+    r,g,b = rgb
+    
+    return(int(r)/255,int(g)/255,int(b)/255)
+
+
+def getColors(filename):
+    """ Read a file of RGB and/or hex colors and convert to PyCairo's RGB format. """
+    res = []
+    file = open(filename, 'r')
+    lines = file.readlines()
+    for line in lines:
+        line = line.strip()
+        if line == '':
+            pass
+        else:
+            line = line.strip("()")
+            line = line.split(',')
+            if len(line) > 1:
+                res.append(rgbToColor(line))
+            else:
+                res.append(hexToColor(line[0]))
+            
+    return(res)
+
 
 def drawMotifs(context,motif,seq,i):
     """ Draw motifs on existing transcript. """
@@ -145,22 +168,31 @@ def doSeq(context,seq,motifs,i):
 
 
 def main():
+    
     args = getArgs()
     fasta,motiffile,allowOverlaps,output = args.fasta, args.motif,args.allowOverlaps,args.output
+    colors = [(0.933, 0.376, 0.333), (0.376, 0.827, 0.580), 
+          (1.0, 0.851, 0.490), (1.0, 0.608, 0.522), (0.659, 0.855, 0.863), 
+          (0.271, 0.482, 0.596), (0.114, 0.208, 0.341), (0.667, 0.965, 0.514), (1.0, 0.624, 0.110)]
+    if args.colors != None:
+        print(hmm)
+        colors = getColors(args.colors)
+
     seqs,maxlen = parseFile(fasta)
     motifs = getMotifs(motiffile,colors,allowOverlaps)
-    #print(maxlen)
-    #print(motifs)
+    
     surface = cairo.SVGSurface(output, maxlen+100, (len(seqs)+1)*150)
     context = cairo.Context(surface)
     context.set_font_size(25)
     context.move_to(50,50)
+    
     for i in range(len(motifs)):
         name,color = motifs[i][0],motifs[i][2]
         context.move_to(100*(i+1)-50, 50)
         context.set_source_rgb(color[0],color[1],color[2])
         context.show_text(name)
     context.move_to(50,50)
+    
     i = 1
     for seq in seqs:
         doSeq(context,seq,motifs,i)
