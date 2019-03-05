@@ -24,3 +24,5 @@ Tool for visualizing motifs in nucleotide sequences.
  * Python3
  * PyCairo
  
+## Example Usage
+`python Visualize_motifs.py -f Figure_1.fasta -m Fig_1_motifs.txt -o Figure_1.svg`
