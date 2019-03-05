@@ -11,9 +11,13 @@ Tool for visualizing motifs in nucleotide sequences.
 
 ## Parameters
   -f/--fasta  path to FASTA file of sequences, optionally with introns lowercase and exons uppercase
+  
   -m/--motif  path to file of motifs, 1 per line
+  
   -c/--colors (optional) path to file of colors in hex and/or RGB (255) format, 1 per line
+  
   -o/--output (optional) name of output file, default is motifs.svg
+  
   -a/--allowOverlaps (optional) whether to allow overlapping copie sof a single motif, default is True
   
 ## Requirements
